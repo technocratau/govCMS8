@@ -12,8 +12,9 @@ addons:
     - govcms8.local
 
 branches:
-  except:
-     - master
+  only:
+     # Only run Travis on major branches (1.x, 8.x-5.x etc) to avoid double builds
+     - /^\d\.x(-\d\.x)?(-\S*)?$/
 
 cache:
   bundler:        true
@@ -24,11 +25,13 @@ cache:
     - "$HOME/.npm"
 
 php:
-  - '7.1'
+  - 7.1
+  - 7.2
 
 matrix:
   allow_failures:
-  - php:          5.6
+  - php:          7.2
+  fast_finish:    true
 
 before_install:
   # Tweak PHP configuration.
@@ -74,8 +77,11 @@ install:
   # Create the MySQL database and add a user for testing.
   - mysql -u root -e "CREATE DATABASE govcms8; CREATE USER 'govcms'@'localhost' IDENTIFIED BY 'govcms'; GRANT ALL ON govcms8.* TO 'govcms'@'localhost';"
 
+  # Validate composer.json file.
+  - composer validate composer.json --no-check-all --ansi --no-interaction
+
   # Install govCMS codes.
-  - travis_retry composer --verbose update
+  - travis_retry composer --verbose install
 
   # Install govCMS site.
   - phing site:install -Ddb.database=govcms8 -Ddb.user=govcms -Ddb.password=govcms -Ddb.host=127.0.0.1 -Durl==http://127.0.0.1:8080
@@ -90,9 +96,5 @@ before_script:
   - sleep 5
 
 script:
-  - composer validate composer.json --no-check-all --ansi --no-interaction
-  - phing tests:phpunit
+  - phing test:phpunit
   - behat --strict --stop-on-failure --config tests/behat/behat.travis.yml
-
-matrix:
-  fast_finish:    true
